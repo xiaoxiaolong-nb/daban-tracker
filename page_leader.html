@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🐉 板块龙头速览</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,'Microsoft YaHei',sans-serif;margin:0;background:#0f1115;color:#e6e6e6;padding:14px;font-size:13px}
+  .topbar{display:flex;gap:6px;margin-bottom:16px}
+  .topbar a{display:inline-block;padding:7px 14px;background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;color:#9aa0aa;text-decoration:none;font-size:13px}
+  .topbar a.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+  .topbar a:hover{color:#e6e6e6}
+  h1{font-size:17px;margin:0 0 4px}
+  .sub{color:#9aa0aa;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .live-dot{width:7px;height:7px;background:#00c853;border-radius:50%;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .ws-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:6px}
+  .ws-ok{background:#00c853}.ws-bad{background:#ff4d4f}
+
+  /* 顶部统计卡 */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:14px}
+  .stat{background:#1a1d24;border:1px solid #2a2e38;border-radius:10px;padding:10px 13px}
+  .stat .k{font-size:11px;color:#9aa0aa;margin-bottom:3px}
+  .stat .v{font-size:20px;font-weight:700;line-height:1.2}
+  .stat .v small{font-size:11px;font-weight:400;color:#9aa0aa;margin-left:3px}
+  .stat.king{background:#1a0a18;border-color:#ff4d8d55}
+  .stat.king .v{color:#ff4d8d}
+  .stat.hot3{background:#1a1505;border-color:#ff704355}
+  .stat.hot3 .v{color:#ff7043}
+  .stat.hot2{background:#1a1505;border-color:#ffaa0055}
+  .stat.hot2 .v{color:#ffaa00}
+
+  /* 工具栏 */
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .toolbar .group{display:flex;gap:4px;background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;padding:3px}
+  .toolbar .group label{padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:#9aa0aa;user-select:none}
+  .toolbar .group label:hover{color:#e6e6e6}
+  .toolbar .group input{display:none}
+  .toolbar .group input:checked+span{background:#2f6fed;color:#fff;padding:4px 10px;border-radius:5px;margin:-4px -10px}
+  .toolbar .sel{background:#1a1d24;border:1px solid #2a2e38;color:#e6e6e6;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer}
+  .refresh-btn{background:#1e2128;border:1px solid #2a2e38;color:#9aa0aa;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer}
+  .refresh-btn:hover{color:#e6e6e6;border-color:#2f6fed}
+
+  /* 板块卡片 */
+  .sector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:11px}
+  .sector-card{background:#1a1d24;border:1px solid #2a2e38;border-radius:10px;padding:12px 14px;transition:border-color .1s}
+  .sector-card:hover{border-color:#2f6fed}
+  .sector-card.has-leader{border-color:#ff7043}
+  .sector-card.has-king{border-color:#ff4d8d;background:#1a1018;box-shadow:0 0 0 1px #ff4d8d22}
+  .sector-card.empty-leader{border-style:dashed;opacity:.85}
+
+  .sector-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #2a2e38}
+  .sector-head .left{display:flex;align-items:center;gap:8px}
+  .sector-head .name{font-size:15px;font-weight:700}
+  .sector-head .meta{font-size:11px;color:#9aa0aa}
+  .sector-head .right{display:flex;align-items:center;gap:6px}
+  .king-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700}
+  .king-tag.king{background:#5a0030;color:#ff4d8d}
+  .king-tag.lord{background:#4a1a00;color:#ff7043}
+
+  /* 股票行 */
+  .stock-list{display:flex;flex-direction:column;gap:3px}
+  .stock-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:#15171c;font-size:12px;cursor:pointer;transition:background .1s}
+  .stock-row:hover{background:#1e2128}
+  .stock-row.is-leader{background:#1a0a18;border:1px solid #ff4d8d33}
+  .stock-row.is-lord{background:#1a1505;border:1px solid #ff704355}
+  .stock-row .nm{flex:1;font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
+  .stock-row .nm .star{color:#ff4d8d;font-size:12px}
+  .stock-row .zb{font-size:10px;color:#9aa0aa;padding:0 6px;background:#1a1d24;border-radius:3px}
+  .stock-row .zb.hot{color:#ff4d4f;font-weight:700;background:#3a0a0a}
+  .stock-row .fb{font-size:11px;color:#ffaa00;font-weight:600;padding:0 6px;align-self:center}
+  .stock-row .fb.weak{color:#888;font-weight:400}
+  .stock-row .board-tag{flex-shrink:0;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;min-width:30px;text-align:center}
+  .b-1{background:#2a2e38;color:#9aa0aa}
+  .b-2{background:#3a2a00;color:#ffaa00}
+  .b-3{background:#4a1a00;color:#ff7043}
+  .b-4{background:#5a0030;color:#ff4d8d}
+  .b-5{background:#3a0060;color:#d070ff}
+  .stock-row .t{color:#9aa0aa;font-size:11px;flex-shrink:0;width:34px;text-align:right}
+  .stock-row .pr{color:#e6e6e6;font-size:12px;flex-shrink:0;width:60px;text-align:right}
+  .stock-row .pr.pending{color:#6b7280}
+  .stock-row .pc{font-size:11px;flex-shrink:0;width:55px;text-align:right}
+  .stock-row .pc.pos{color:#ff4d4f}.stock-row .pc.neg{color:#00c853}.stock-row .pc.pending{color:#6b7280}
+  .stock-row .am{color:#9aa0aa;font-size:11px;flex-shrink:0;width:55px;text-align:right}
+
+  /* 空状态 */
+  .empty-state{grid-column:1/-1;text-align:center;padding:40px;color:#9aa0aa;font-size:13px;background:#1a1d24;border-radius:10px}
+
+  /* 折叠/展开 */
+  .toggle{display:inline-block;padding:2px 8px;background:#2a2e38;color:#9aa0aa;border-radius:4px;font-size:11px;cursor:pointer;user-select:none}
+  .toggle:hover{color:#e6e6e6;background:#3a3d45}
+
+  .legend{margin-top:14px;padding:10px 14px;background:#15171c;border-radius:8px;font-size:11px;color:#9aa0aa;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .legend .lg{display:flex;align-items:center;gap:4px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/">&#x1F409; 龙回头</a>
+  <a href="/page/firstboard">&#x1F4CB; 首板次日池</a>
+  <a href="/page/leader" class="active">&#x1F409; 板块龙头速览</a>
+  <a href="/page/morning">&#x1F305; 早盘监测</a>
+</div>
+
+<h1>🐉 板块龙头速览 <span class="ws-dot ws-ok" id="ws-dot"></span></h1>
+<div class="sub">
+  <span><span class="live-dot"></span>实时·按板块聚合所有涨停股·龙头一眼可见</span>
+  <span id="update-time">加载中…</span>
+  <button class="refresh-btn" onclick="load()">🔄 刷新</button>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="toolbar">
+  <div class="group" id="filter-group">
+    <label><input type="radio" name="filter" value="all" checked><span>全部</span></label>
+    <label><input type="radio" name="filter" value="leader3"><span>只看3板+</span></label>
+    <label><input type="radio" name="filter" value="leader2"><span>只看2板+</span></label>
+    <label><input type="radio" name="filter" value="high_only"><span>只看高标(去首板)</span></label>
+    <label><input type="radio" name="filter" value="king_only"><span>只看龙头板块</span></label>
+  </div>
+  <select class="sel" id="sort-mode">
+    <option value="board">板数优先</option>
+    <option value="count">涨停数优先</option>
+    <option value="time">涨停时间优先</option>
+  </select>
+  <span style="color:#9aa0aa;font-size:11px;margin-left:auto">提示：龙头板块 = 板块内最高板 ≥ 3</span>
+</div>
+
+<div class="sector-grid" id="grid"></div>
+
+<div class="legend">
+  <span style="color:#e6e6e6">图例：</span>
+  <span class="lg"><span class="board-tag b-1">1板</span>首板（今日首次涨停）</span>
+  <span class="lg"><span class="board-tag b-2">2板</span>二连板</span>
+  <span class="lg"><span class="board-tag b-3">3板</span>三连板 ⭐板块龙头</span>
+  <span class="lg"><span class="board-tag b-4">4板</span>四连板 👑高标</span>
+  <span class="lg"><span class="board-tag b-5">5+</span>五连板以上</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+let _socket=null;
+let _allRows=[];
+
+function initWS(){
+  _socket=io('http://127.0.0.1:5000',{transports:['websocket']});
+  _socket.on('connect',()=>{document.getElementById('ws-dot').className='ws-dot ws-ok';});
+  _socket.on('disconnect',()=>{document.getElementById('ws-dot').className='ws-dot ws-bad';});
+  _socket.on('quotes_update',data=>{
+    document.querySelectorAll('tr[data-code],.stock-row[data-code]').forEach(el=>{
+      const q=data[el.dataset.code];
+      if(!q) return;
+      const prEl=el.querySelector('.pr');
+      const pcEl=el.querySelector('.pc');
+      if(prEl&&q.price!=null){prEl.textContent=q.price.toFixed(2);prEl.classList.remove('pending');}
+      if(pcEl&&q.change_pct!=null){
+        pcEl.innerHTML=(q.change_pct>=0?'+':'')+q.change_pct.toFixed(2)+'%';
+        pcEl.classList.remove('pending');
+        pcEl.classList.toggle('pos',q.change_pct>=0);
+        pcEl.classList.toggle('neg',q.change_pct<0);
+      }
+    });
+  });
+}
+
+function fmtTime(t){
+  if(!t) return '—';
+  t=String(t);
+  if(t.length>=4) return t.slice(0,2)+':'+t.slice(2,4);
+  return t;
+}
+
+// 给定板块列表，提取该板块的"龙头"标识
+function pickKing(list){
+  // 板数最高且涨停最早的为板块龙头
+  const sorted=list.slice().sort((a,b)=>(b.boards||1)-(a.boards||1)||a.first_time.localeCompare(b.first_time));
+  return sorted[0];
+}
+
+function getFilterMode(){
+  const el=document.querySelector('input[name="filter"]:checked');
+  return el?el.value:'all';
+}
+
+function getSortMode(){
+  return document.getElementById('sort-mode').value;
+}
+
+function load(){
+  fetch('/api/market/zt_today').then(r=>r.json()).then(d=>{
+    _allRows=d.data||[];
+    render();
+    document.getElementById('update-time').textContent='更新: '+new Date().toLocaleTimeString('zh-CN',{hour12:false});
+    if(_socket && _socket.connected && _allRows.length) _socket.emit('subscribe_quotes',{codes:_allRows.map(r=>r.code)});
+  });
+}
+
+function render(){
+  const all=_allRows;
+  const stats={total:all.length,b1:0,b2:0,b3:0,b4:0,b5:0};
+  all.forEach(r=>{
+    const b=r.boards||1;
+    if(b===1)stats.b1++;
+    else if(b===2)stats.b2++;
+    else if(b===3)stats.b3++;
+    else if(b===4)stats.b4++;
+    else if(b>=5)stats.b5++;
+  });
+  const kingCount=stats.b4+stats.b5;
+  const maxBoard=all.reduce((m,r)=>Math.max(m,r.boards||0),0);
+  const statsHtml=`
+    <div class="stat"><div class="k">总涨停</div><div class="v">${stats.total}</div></div>
+    <div class="stat king"><div class="k">👑 ${maxBoard}板龙头</div><div class="v">${kingCount}<small>只</small></div></div>
+    <div class="stat hot3"><div class="k">⭐ 3板</div><div class="v">${stats.b3}<small>只</small></div></div>
+    <div class="stat hot2"><div class="k">2板</div><div class="v">${stats.b2}<small>只</small></div></div>
+    <div class="stat"><div class="k">1板（首板）</div><div class="v">${stats.b1}<small>只</small></div></div>
+  `;
+  document.getElementById('stats').innerHTML=statsHtml;
+
+  // 板块聚合
+  const byInd={};
+  all.forEach(r=>{const k=r.industry||'其他';if(!byInd[k])byInd[k]=[];byInd[k].push(r);});
+
+  // 板块聚合 + 龙头提取
+  const sectors=Object.entries(byInd).map(([name,list])=>{
+    const king=pickKing(list);
+    return {
+      name,
+      list,
+      king,
+      maxBoard:Math.max(...list.map(x=>x.boards||1)),
+      count:list.length,
+      highCount:list.filter(x=>(x.boards||1)>=2).length,
+      amount:list.reduce((s,x)=>s+(x.amount||0),0),
+      earliestTime:list.reduce((m,x)=>x.first_time<m?x.first_time:m,list[0]?.first_time||'9999'),
+    };
+  });
+
+  // 应用筛选
+  const filter=getFilterMode();
+  let filtered=sectors.slice();
+  if(filter==='leader3') filtered=filtered.filter(s=>s.maxBoard>=3);
+  else if(filter==='leader2') filtered=filtered.filter(s=>s.maxBoard>=2);
+  else if(filter==='king_only') filtered=filtered.filter(s=>s.maxBoard>=3);
+  else if(filter==='high_only'){
+    // 高标筛选：板块内仅显示 ≥2 板的股票；板块本身保留（但只显示高标）
+    filtered=filtered.map(s=>({...s,list:s.list.filter(x=>(x.boards||1)>=2)})).filter(s=>s.list.length>0);
+  }
+
+  // 排序
+  const sort=getSortMode();
+  filtered.sort((a,b)=>{
+    if(sort==='board') return b.maxBoard-a.maxBoard || b.count-a.count || a.name.localeCompare(b.name);
+    if(sort==='count') return b.count-a.count || b.maxBoard-a.maxBoard || a.name.localeCompare(b.name);
+    if(sort==='time') return a.earliestTime.localeCompare(b.earliestTime) || b.maxBoard-a.maxBoard;
+    return 0;
+  });
+
+  // 渲染板块网格
+  const grid=document.getElementById('grid');
+  if(!filtered.length){
+    grid.innerHTML='<div class="empty-state">当前筛选下没有数据</div>';
+    return;
+  }
+  grid.innerHTML='';
+  filtered.forEach(sec=>{
+    const card=document.createElement('div');
+    const maxB=sec.maxBoard;
+    const cls=maxB>=4?'has-king':maxB>=3?'has-leader':'';
+    card.className='sector-card '+cls;
+
+    // 板块头
+    const kingTag=maxB>=4?`<span class="king-tag king">👑 龙头 ${maxB}板</span>`
+      :maxB>=3?`<span class="king-tag lord">⭐ 板块龙头</span>`:'';
+
+    // 板块内股票排序：高标置顶（同板数按涨停时间）
+    const sortedStocks=sec.list.slice().sort((a,b)=>(b.boards||1)-(a.boards||1)||a.first_time.localeCompare(b.first_time));
+    const stocksHtml=sortedStocks.map(r=>{
+      const b=r.boards||1;
+      const bc=b>=5?'b-5':b===4?'b-4':b===3?'b-3':b===2?'b-2':'b-1';
+      const isKing=r===sec.king && maxB>=3;
+      const clsR=isKing&&maxB>=4?'is-leader':isKing?'is-lord':'';
+      const star=isKing&&maxB>=4?'<span class="star">👑</span>':isKing?'<span class="star">⭐</span>':'';
+      return `<div class="stock-row ${clsR}" data-code="${r.code}">
+        <span class="nm">${star}${r.name||r.code}</span>
+        <span class="board-tag ${bc}">${b}板</span>
+        <span class="t">${fmtTime(r.first_time)}</span>
+        <span class="zb pending" title="今日封板次数">炸${r.zb_count||0}</span>
+        <span class="fb" title="封板资金(亿)">封${r.fb_money?r.fb_money.toFixed(2)+"亿":'—'}</span>
+        <span class="pr pending">—</span>
+        <span class="pc pending">—</span>
+      </div>`;
+    }).join('');
+
+    card.innerHTML=`
+      <div class="sector-head">
+        <div class="left">
+          <span class="name">${sec.name}</span>
+          <span class="meta">${sec.count}只涨停 · 最高${sec.maxBoard}板${sec.highCount?` · ${sec.highCount}只高标`:''}</span>
+        </div>
+        <div class="right">${kingTag}</div>
+      </div>
+      <div class="stock-list">${stocksHtml}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// 绑定筛选/排序事件
+document.getElementById('filter-group').addEventListener('change',render);
+document.getElementById('sort-mode').addEventListener('change',render);
+
+initWS();
+load();
+// 30秒自动刷新一次（轻量重渲染）
+setInterval(()=>{if(_socket&&_socket.connected) load();},30000);
+</script>
+</body>
+</html>
