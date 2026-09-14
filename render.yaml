@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: daban-tracker
+    runtime: python
+    repo: https://github.com/xiaoxiaolong-nb/daban-tracker
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --worker-class gevent --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    plan: free
+    region: singapore
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: RENDER
+        value: true
