@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>龙回头追踪器</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,'Microsoft YaHei',sans-serif;margin:0;background:#0f1115;color:#e6e6e6;padding:16px}
+.topbar{display:flex;gap:6px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.topbar a{display:inline-block;padding:6px 14px;background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;color:#9aa0aa;text-decoration:none;font-size:13px}
+.topbar a.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.topbar a:hover{color:#e6e6e6}
+h1{font-size:18px;margin:0 0 4px}
+.sub{color:#9aa0aa;font-size:12px;margin-bottom:14px;line-height:1.7}
+.live-dot{width:8px;height:8px;background:#00c853;border-radius:50%;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+form{background:#1a1d24;border:1px solid #2a2e38;border-radius:10px;padding:12px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+input,button{background:#0f1115;border:1px solid #2a2e38;color:#e6e6e6;border-radius:7px;padding:7px 9px;font-size:13px}
+button{cursor:pointer}
+.btn-primary{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.btn-gray{background:#1e2128;border-color:#2a2e38;color:#9aa0aa}
+.btn-primary:hover,.btn-gray:hover{opacity:.88}
+.legend{font-size:12px;color:#9aa0aa;margin-bottom:12px}
+.legend b{padding:1px 7px;border-radius:4px;font-weight:700}
+.legend .r{background:#ff4d4f;color:#fff}
+.legend .y{background:#ffaa00;color:#1a1a1a}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+th,td{padding:8px 9px;border-bottom:1px solid #1e2128;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{color:#9aa0aa;font-weight:600;position:sticky;top:0;background:#0f1115;font-size:12px}
+.pending{color:#6b7280}
+.wrap{overflow-x:auto}
+.pin-btn{background:transparent;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1}
+.pin-btn:hover{transform:scale(1.2)}
+.pinned-row td:first-child{box-shadow:inset 3px 0 0 #6f42c1}
+.pinned-row{background:#1a1426 !important}
+.ws-status{font-size:11px;color:#9aa0aa;margin-left:8px;font-weight:400}
+.ws-connected{color:#00c853}.ws-disconnected{color:#ff4d4f}
+.td-name{font-weight:600}
+.td-code{color:#9aa0aa}
+.td-price{font-weight:700;font-size:14px}
+.td-mkt{color:#c0c8d4}
+/* 量比预警 */
+.vr{display:inline-block;min-width:44px;padding:3px 8px;border-radius:4px;font-weight:700}
+.vr.danger{color:#fff;background:#ff4d4f;box-shadow:0 0 10px #ff4d4f,0 0 18px rgba(255,77,79,.4);animation:vr-pulse 1.2s infinite}
+.vr.warn{color:#1a1a1a;background:#ffaa00;box-shadow:0 0 6px rgba(255,170,0,.5)}
+@keyframes vr-pulse{0%,100%{box-shadow:0 0 10px #ff4d4f}50%{box-shadow:0 0 20px #ff4d4f,0 0 30px rgba(255,77,79,.6)}}
+.chart-btn{background:#1e2430;border:1px solid #2a2e38;color:#8db4e8;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+.chart-btn:hover{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.del{color:#ff4d4f;cursor:pointer;font-weight:700}
+/* 展开图表 */
+#tb .chart-row{display:none}
+#tb .chart-row.open{display:table-row}
+#tb .chart-row td{padding:0;border-bottom:2px solid #1e2430}
+.chart-panel{background:#111418;padding:14px 16px}
+.chart-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.chart-title{font-size:13px;color:#9aa0aa}
+canvas.kchart{width:100%;height:230px;display:block;background:#0d0f14;border-radius:8px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="active">&#x1F409; 龙回头</a>
+  <a href="/page/firstboard">&#x1F4CB; 首板次日池</a>
+  <a href="/page/leader">&#x1F409; 板块龙头速览</a>
+  <a href="/page/morning">&#x1F305; 早盘监测</a>
+</div>
+
+<h1>&#x1F409; 龙回头追踪器 <span class="ws-status" id="ws-status"></span></h1>
+<div class="sub">
+  龙回头模式：股票上涨 &rarr; 回调 &rarr; <b>缩量</b>企稳买入 &nbsp;&middot;&nbsp; 观察量比缩量程度
+  &nbsp;&middot;&nbsp;<span class="live-dot"></span><span id="live-label">连接中&hellip;</span>
+</div>
+
+<form id="f">
+  <div><div style="font-size:11px;color:#9aa0aa;margin-bottom:3px">股票代码（可逗号分隔批量）</div><input id="code" placeholder="600519 / 300750 / 600519,000001" style="width:320px"></div>
+  <button type="submit" class="btn-primary">+ 加入关注</button>
+  <button type="button" id="refresh" class="btn-gray">↻ 刷新</button>
+</form>
+
+<div class="legend">
+  量比预警： <b class="y">0.40 ~ 0.60 黄色预警</b> &nbsp; <b class="r">&lt; 0.40 红色预警（极度缩量）</b>
+</div>
+
+<div class="wrap">
+<table id="tbl">
+  <thead><tr>
+    <th style="width:56px">置顶</th>
+    <th style="width:120px">名称</th>
+    <th style="width:90px">代码</th>
+    <th style="width:100px">量比</th>
+    <th style="width:90px">日线图</th>
+    <th style="width:90px">现价</th>
+    <th style="width:100px">市值(亿)</th>
+    <th style="width:40px"></th>
+  </tr></thead>
+  <tbody id="tb"></tbody>
+</table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+let _items = [];
+let _quotes = {};
+let _socket = null;
+let _klineCache = {};
+
+// ===== WebSocket 实时行情 =====
+function initWS(){
+  _socket = io('http://127.0.0.1:5000', { transports:['websocket'] });
+  _socket.on('connect', ()=>{
+    document.getElementById('ws-status').innerHTML = '<span class="ws-connected">&#9679;</span> 实时';
+    document.getElementById('live-label').textContent = '实时连接中';
+    subscribe();
+  });
+  _socket.on('disconnect', ()=>{
+    document.getElementById('ws-status').innerHTML = '<span class="ws-disconnected">&#9679; 已断开</span>';
+    document.getElementById('live-label').textContent = '实时已断开，重连中…';
+  });
+  _socket.on('quotes_update', data=>{
+    Object.assign(_quotes, data);
+    applyQuotes();
+  });
+}
+function subscribe(){
+  if(!_socket || !_socket.connected) return;
+  const codes=[...new Set(_items.map(s=>s.code))];
+  if(codes.length) _socket.emit('subscribe_quotes',{codes});
+}
+
+function vrHtml(v){
+  if(v==null) return '<span style="opacity:.35">—</span>';
+  if(v<0.4) return '<span class="vr danger">'+v.toFixed(2)+'</span>';
+  if(v<0.6) return '<span class="vr warn">'+v.toFixed(2)+'</span>';
+  return v.toFixed(2);
+}
+function mktHtml(v){
+  if(v==null) return '—';
+  return v>=100 ? Math.round(v) : v.toFixed(1);
+}
+
+function applyQuotes(){
+  document.querySelectorAll('tr[data-code]').forEach(tr=>{
+    const q=_quotes[tr.dataset.code];
+    if(!q) return;
+    if(q.name){ const t=tr.querySelector('.td-name'); if(t && (!t.textContent || t.textContent==='—')) t.textContent=q.name; }
+    if(q.price){ const t=tr.querySelector('.td-price'); t.textContent=q.price.toFixed(2); t.classList.remove('pending'); }
+    tr.querySelector('.td-vr').innerHTML = vrHtml(q.vol_ratio);
+    tr.querySelector('.td-mkt').innerHTML = mktHtml(q.mktcap);
+  });
+}
+
+// ===== 数据加载 =====
+function load(){
+  fetch('/api/lh').then(r=>r.json()).then(d=>{
+    _items = Array.isArray(d)?d:[];
+    _items.sort((a,b)=>{
+      if(!!a.pinned!==!!b.pinned) return a.pinned?-1:1;
+      return String(b.added_date||'').localeCompare(String(a.added_date||''));
+    });
+    renderTable();
+    subscribe();
+  });
+}
+
+function renderTable(){
+  const tb=document.getElementById('tb');
+  tb.innerHTML='';
+  if(!_items.length){
+    tb.innerHTML='<tr><td colspan="8" style="padding:26px;color:#6b7280">暂无关注股票，输入代码加入（例：600519）</td></tr>';
+    return;
+  }
+  _items.forEach(it=>{
+    const tr=document.createElement('tr');
+    tr.dataset.code=it.code;
+    if(it.pinned) tr.classList.add('pinned-row');
+    tr.innerHTML=
+      '<td><button class="pin-btn" title="'+(it.pinned?'取消置顶':'置顶')+'">'+(it.pinned?'&#x1F4CC;':'&#x1F4CD;')+'</button></td>'+
+      '<td class="td-name">'+(it.name||'—')+'</td>'+
+      '<td class="td-code">'+it.code+'</td>'+
+      '<td class="td-vr"><span style="opacity:.35">—</span></td>'+
+      '<td><button class="chart-btn" title="查看日线">&#x1F4C8; 日线</button></td>'+
+      '<td class="td-price pending">—</td>'+
+      '<td class="td-mkt">—</td>'+
+      '<td class="del" title="移除">×</td>';
+    tb.appendChild(tr);
+
+    const chartTr=document.createElement('tr');
+    chartTr.className='chart-row';
+    chartTr.id='chart-row-'+it.code;
+    chartTr.innerHTML='<td colspan="8" style="padding:0">'+
+      '<div class="chart-panel">'+
+        '<div class="chart-toolbar"><span class="chart-title">&#x1F4C8; <span id="ct-name-'+it.code+'">'+(it.name||it.code)+'</span> '+it.code+' 日线走势</span></div>'+
+        '<canvas class="kchart" id="kcanvas-'+it.code+'"></canvas>'+
+      '</div></td>';
+    tb.appendChild(chartTr);
+  });
+
+  tb.querySelectorAll('.pin-btn').forEach(b=>{
+    b.onclick=()=>{
+      const it=_items.find(x=>x.code===b.closest('tr').dataset.code);
+      const pinned=!(it&&it.pinned);
+      fetch('/api/lh/'+encodeURIComponent(b.closest('tr').dataset.code),{method:'PATCH',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({pinned})}).then(load);
+    };
+  });
+  tb.querySelectorAll('.chart-btn').forEach(b=>{
+    b.onclick=()=>toggleChart(b.closest('tr').dataset.code);
+  });
+  tb.querySelectorAll('.del').forEach(e=>{
+    e.onclick=()=>{
+      const code=e.closest('tr').dataset.code;
+      if(confirm('移除 '+code+' ？'))
+        fetch('/api/lh/'+encodeURIComponent(code),{method:'DELETE'}).then(load);
+    };
+  });
+  applyQuotes();
+}
+
+// ===== 图表展开/收起 =====
+function toggleChart(code){
+  const row=document.getElementById('chart-row-'+code);
+  if(!row) return;
+  const wasOpen=row.classList.contains('open');
+  document.querySelectorAll('.chart-row.open').forEach(r=>r.classList.remove('open'));
+  if(!wasOpen){
+    row.classList.add('open');
+    row.scrollIntoView({behavior:'smooth',block:'nearest'});
+    if(_klineCache[code]) drawChart(code,_klineCache[code]);
+    else loadKline(code);
+  }
+}
+
+async function loadKline(code){
+  try{
+    const r=await fetch('/api/kline?code='+encodeURIComponent(code)+'&period=daily&days=120');
+    if(!r.ok) return;
+    const d=await r.json();
+    const bars=d.bars||[];
+    if(!bars.length) return;
+    _klineCache[code]=bars;
+    drawChart(code,bars);
+    if(d.name){ const n=document.getElementById('ct-name-'+code); if(n) n.textContent=d.name; }
+  }catch(e){}
+}
+
+// ===== K线绘制（日线，含 MA5/10/20/60 + 成交量）=====
+function drawChart(code,bars){
+  const canvas=document.getElementById('kcanvas-'+code);
+  if(!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.offsetWidth*dpr;
+  canvas.height=230*dpr;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const W=canvas.offsetWidth, H=230;
+  const n=bars.length;
+  if(n<2){ ctx.fillStyle='#4a5060'; ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.fillText('数据不足',W/2,H/2); return; }
+
+  const closes=bars.map(b=>b.close), highs=bars.map(b=>b.high), lows=bars.map(b=>b.low),
+        opens=bars.map(b=>b.open), vols=bars.map(b=>b.vol||0);
+  const pMin=Math.min(...lows), pMax=Math.max(...highs), pad=(pMax-pMin)*0.1;
+  const pLo=pMin-pad, pHi=pMax+pad, volMax=Math.max(...vols)||1;
+  const priceH=H-58, volH=48, leftW=62, chartW=W-leftW;
+  const candleW=Math.max(2,chartW/n-1.5);
+  const pY=v=>priceH-(v-pLo)/(pHi-pLo)*priceH;
+
+  function ma(arr,p){const r=[];for(let i=0;i<arr.length;i++){if(i<p-1){r.push(null);continue;}r.push(arr.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p);}return r;}
+  const ma5=ma(closes,5), ma10=ma(closes,10), ma20=ma(closes,20), ma60=ma(closes,Math.min(60,Math.floor(n*0.5)));
+
+  ctx.strokeStyle='#1a1e28'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=Math.round(priceH*i/4);ctx.beginPath();ctx.moveTo(leftW,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  for(let i=0;i<n;i++){
+    const x=leftW+2+i*(chartW/n)+candleW/2;
+    const up=closes[i]>=opens[i];
+    ctx.strokeStyle=up?'#ff4d4f':'#00c853'; ctx.fillStyle=up?'#ff4d4f':'#00c853';
+    ctx.beginPath(); ctx.moveTo(x,pY(highs[i])); ctx.lineTo(x,pY(lows[i])); ctx.stroke();
+    const bt=pY(Math.max(opens[i],closes[i])), bb=pY(Math.min(opens[i],closes[i]));
+    ctx.fillRect(x-candleW/2,bt,Math.max(1,candleW),Math.max(1,bb-bt));
+    const vh=Math.max(1,(vols[i]/volMax)*volH*0.88);
+    ctx.fillStyle=up?'rgba(255,77,77,.3)':'rgba(0,200,83,.3)';
+    ctx.fillRect(x-candleW/2,H-vh,candleW,vh);
+  }
+
+  [[ma5,'#f5c842'],[ma10,'#4a9eff'],[ma20,'#ff8c00'],[ma60,'#c060ff']].forEach(([arr,color])=>{
+    if(!arr) return;
+    ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.beginPath();
+    let started=false;
+    for(let i=0;i<n;i++){
+      if(arr[i]==null){started=false;continue;}
+      const x=leftW+2+i*(chartW/n)+candleW/2, y=pY(arr[i]);
+      if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  });
+
+  ctx.fillStyle='#4a5060'; ctx.font='10px monospace'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){const v=pHi-(pHi-pLo)*i/4;ctx.fillText(v.toFixed(2),leftW-4,Math.round(priceH*i/4)+3);}
+
+  [[ma5,'#f5c842','MA5'],[ma10,'#4a9eff','MA10'],[ma20,'#ff8c00','MA20'],[ma60,'#c060ff','MA60']].forEach(([arr,color,label],idx)=>{
+    if(!arr) return;
+    const x=leftW+8+idx*60, y=12;
+    ctx.fillStyle=color; ctx.fillRect(x,y-7,8,8);
+    ctx.fillStyle='#9aa0aa'; ctx.font='10px monospace'; ctx.textAlign='left';
+    ctx.fillText(label,x+12,y);
+  });
+}
+
+// ===== 表单 =====
+document.getElementById('f').onsubmit=ev=>{
+  ev.preventDefault();
+  const raw=document.getElementById('code').value.trim();
+  if(!raw){alert('请输入股票代码');return;}
+  const codes=raw.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  Promise.all(codes.map(c=>fetch('/api/lh',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({code:c})}))).then(()=>{
+      document.getElementById('code').value='';
+      _klineCache={};
+      load();
+    });
+};
+document.getElementById('refresh').onclick=()=>{ _klineCache={}; load(); };
+initWS();
+load();
+</script>
+</body>
+</html>
