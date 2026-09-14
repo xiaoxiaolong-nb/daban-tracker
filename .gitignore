@@ -1,0 +1,15 @@
+# 数据文件（云端运行时由 scanner 重新生成，或用户本地数据）
+*.json
+
+# 日志 / 备份
+*.log
+*.err
+*.bak*
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 本地启动 / 守护脚本（含本机绝对路径，不适合云端）
+start_tracker.bat
+watchdog.ps1
