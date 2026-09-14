@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首板次日池</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,'Microsoft YaHei',sans-serif;margin:0;background:#0f1115;color:#e6e6e6;padding:16px}
+.topbar{display:flex;gap:6px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.topbar a{display:inline-block;padding:6px 14px;background:#1a1d24;border:1px solid #2a2e38;border-radius:8px;color:#9aa0aa;text-decoration:none;font-size:13px}
+.topbar a.active{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.topbar a:hover{color:#e6e6e6}
+h1{font-size:18px;margin:0 0 4px}
+.sub{color:#9aa0aa;font-size:12px;margin-bottom:14px;line-height:1.7}
+.live-dot{width:8px;height:8px;background:#00c853;border-radius:50%;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+button{cursor:pointer}
+.btn-gray{background:#1e2128;border:1px solid #2a2e38;color:#9aa0aa;border-radius:7px;padding:6px 12px;font-size:12px}
+.btn-gray:hover{color:#e6e6e6}
+.btn-add{background:#123a22;border:1px solid #1e6b3a;color:#69f0ae;border-radius:6px;padding:3px 10px;font-size:12px;white-space:nowrap}
+.btn-add:hover{background:#1e6b3a;color:#fff}
+.btn-add.done{background:#1e2128;border-color:#2a2e38;color:#6b7280;cursor:default}
+.cards{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:12px}
+.card{background:#1a1d24;border:1px solid #2a2e38;border-radius:10px;padding:9px 13px;min-width:110px;flex:1}
+.card .k{font-size:11px;color:#9aa0aa;margin-bottom:3px}
+.card .v{font-size:18px;font-weight:700}
+.card .v small{font-size:11px;font-weight:400;color:#9aa0aa}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid #2a2e38;border-radius:7px;overflow:hidden}
+.seg button{background:#1a1d24;border:none;color:#9aa0aa;padding:5px 12px;font-size:12px}
+.seg button.on{background:#2f6fed;color:#fff}
+.seg button:not(:last-child){border-right:1px solid #2a2e38}
+select{background:#0f1115;border:1px solid #2a2e38;color:#e6e6e6;border-radius:7px;padding:5px 9px;font-size:12px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+th,td{padding:8px 9px;border-bottom:1px solid #1e2128;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{color:#9aa0aa;font-weight:600;position:sticky;top:0;background:#0f1115;font-size:12px;z-index:2}
+tbody tr:hover{background:#171a20}
+.td-name{font-weight:600}
+.td-code{color:#9aa0aa}
+.td-price{font-weight:700;font-size:14px}
+.pos{color:#ff4d4f}.neg{color:#00c853}.muted{color:#6b7280}
+.vr{display:inline-block;min-width:44px;padding:3px 8px;border-radius:4px;font-weight:700}
+.vr.danger{color:#fff;background:#ff4d4f;box-shadow:0 0 10px #ff4d4f;animation:vr-pulse 1.2s infinite}
+.vr.warn{color:#1a1a1a;background:#ffaa00}
+@keyframes vr-pulse{0%,100%{box-shadow:0 0 10px #ff4d4f}50%{box-shadow:0 0 20px #ff4d4f}}
+.chart-btn{background:#1e2430;border:1px solid #2a2e38;color:#8db4e8;border-radius:6px;padding:4px 10px;font-size:12px}
+.chart-btn:hover{background:#2f6fed;border-color:#2f6fed;color:#fff}
+.chart-row{display:none}
+.chart-row.open{display:table-row}
+.chart-row td{padding:0;border-bottom:2px solid #1e2430}
+.chart-panel{background:#111418;padding:14px 16px}
+.chart-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.chart-title{font-size:13px;color:#9aa0aa}
+canvas.kchart{width:100%;height:230px;display:block;background:#0d0f14;border-radius:8px}
+.empty{color:#6b7280;text-align:center;padding:26px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/">&#x1F409; 龙回头</a>
+  <a href="/page/firstboard" class="active">&#x1F4CB; 首板次日池</a>
+  <a href="/page/leader">&#x1F409; 板块龙头速览</a>
+  <a href="/page/morning">&#x1F305; 早盘监测</a>
+</div>
+
+<h1>&#x1F4CB; 首板次日池 <span class="ws-status" id="ws-status" style="font-size:11px;color:#9aa0aa"></span></h1>
+<div class="sub">
+  只显示最近一个交易日的首板 &nbsp;&middot;&nbsp; 挑中意的点右侧 <b style="color:#69f0ae">＋龙回头</b> 加进第一页池子
+  &nbsp;&middot;&nbsp;<span class="live-dot"></span>实时涨幅/量比/现价/市值为实时（盘中 1.5s 刷新）
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="toolbar">
+  <span id="day-label" style="font-size:13px;font-weight:700;color:#e6e6e6">—</span>
+  <span class="seg" id="seg-res">
+    <button data-v="all" class="on">全部</button>
+    <button data-v="win">今涨停</button>
+    <button data-v="lose">今未涨停</button>
+  </span>
+  <button class="btn-gray" id="rescan">&#x1F504; 重新扫描数据</button>
+  <span id="scan-tip" style="font-size:11px;color:#6b7280"></span>
+</div>
+
+<div class="wrap">
+<table id="tbl">
+  <thead><tr>
+    <th style="width:130px">名称</th>
+    <th style="width:76px">代码</th>
+    <th style="width:92px">首板日</th>
+    <th style="width:92px">实时涨幅</th>
+    <th style="width:92px">量比</th>
+    <th style="width:80px">日线图</th>
+    <th style="width:86px">现价</th>
+    <th style="width:92px">市值(亿)</th>
+    <th style="width:100px">加入龙回头</th>
+  </tr></thead>
+  <tbody id="tb"></tbody>
+</table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+let _all=[], _quotes={}, _socket=null, _klineCache={}, _lhSet=new Set();
+let _res='all';
+let _today = (()=>{ const d=new Date(); return ''+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); })();
+
+function fmtPct(v){ if(v==null) return '<span class="muted">—</span>'; const n=Number(v); return '<span class="'+(n>=0?'pos':'neg')+'">'+(n>=0?'+':'')+n.toFixed(2)+'%</span>'; }
+function vrHtml(v){ if(v==null) return '<span class="muted">—</span>'; if(v<0.4) return '<span class="vr danger">'+Number(v).toFixed(2)+'</span>'; if(v<0.6) return '<span class="vr warn">'+Number(v).toFixed(2)+'</span>'; return Number(v).toFixed(2); }
+function mktHtml(v){ if(v==null) return '—'; return v>=100?Math.round(v):Number(v).toFixed(1); }
+function dstr(d){ d=String(d); return d.length===8?d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8):d; }
+
+function initWS(){
+  _socket=io('http://127.0.0.1:5000',{transports:['websocket']});
+  _socket.on('connect',()=>{ document.getElementById('ws-status').innerHTML='<span style="color:#00c853">&#9679;</span> 实时'; subscribe(); });
+  _socket.on('disconnect',()=>{ document.getElementById('ws-status').innerHTML='<span style="color:#ff4d4f">&#9679; 已断开</span>'; });
+  _socket.on('quotes_update',data=>{ Object.assign(_quotes,data); applyQuotes(); });
+}
+function subscribe(){
+  if(!_socket||!_socket.connected) return;
+  const codes=[...new Set(_all.map(s=>s.code))];
+  if(codes.length) _socket.emit('subscribe_quotes',{codes});
+}
+function isWin(s){
+  const q=_quotes[s.code];
+  if(q && q.change_pct!=null) return Number(q.change_pct) >= 9.95;
+  return !!s.success;
+}
+function livePct(s){
+  const q=_quotes[s.code];
+  if(q && q.change_pct!=null) return Number(q.change_pct);
+  return (s.next_pct!=null? Number(s.next_pct) : null);
+}
+function applyQuotes(){
+  document.querySelectorAll('#tb tr[data-code]').forEach(tr=>{
+    const code=tr.dataset.code, q=_quotes[code]; if(!q) return;
+    if(q.price){ const t=tr.querySelector('.td-price'); if(t){ t.textContent=q.price.toFixed(2); t.classList.remove('muted'); } }
+    const vr=tr.querySelector('.td-vr'); if(vr) vr.innerHTML=vrHtml(q.vol_ratio);
+    const mk=tr.querySelector('.td-mkt'); if(mk) mk.innerHTML=mktHtml(q.mktcap);
+    // 实时涨幅覆盖
+    const np=tr.querySelector('.td-next'); if(np) np.innerHTML=fmtPct(q.change_pct);
+  });
+  // 顶卡实时统计
+  const day=daySamples();
+  const vals=day.map(s=>livePct(s)).filter(v=>v!=null);
+  const win=day.filter(s=>isWin(s)).length;
+  const wnEl=document.getElementById('card-win');
+  if(wnEl) wnEl.innerHTML=win+'<small> 只</small>';
+  const rlEl=document.getElementById('card-rate');
+  if(rlEl && day.length) rlEl.innerHTML=((win/day.length)*100).toFixed(1)+'<small>%</small>';
+  const el=document.getElementById('card-avg');
+  if(el && vals.length){ const av=vals.reduce((a,b)=>a+b,0)/vals.length; el.className='v '+(av>=0?'pos':'neg'); el.innerHTML=(av>=0?'+':'')+av.toFixed(2)+'<small>%</small>'; }
+}
+
+function maxDate(){ return _all.reduce((m,s)=> String(s.sig_date)>m?String(s.sig_date):m, ''); }
+function daySamples(){ const md=maxDate(); return _all.filter(s=>String(s.sig_date)===md); }
+function load(){
+  fetch('/api/market/day1to2').then(r=>r.json()).then(d=>{
+    _all=d.samples||[];
+    const md=maxDate();
+    const nd=(_all.find(s=>String(s.sig_date)===md)||{}).next_date||'';
+    document.getElementById('day-label').textContent = md? ('📅 首板日 '+dstr(md)+'  ·  今日盘中实时') : '暂无数据';
+    renderCards();
+    render();
+    subscribe();
+  });
+}
+function loadLH(){
+  fetch('/api/lh').then(r=>r.json()).then(d=>{ _lhSet=new Set((Array.isArray(d)?d:[]).map(x=>x.code)); render(); }).catch(()=>{});
+}
+function filtered(){
+  return daySamples().filter(s=>{
+    if(_res==='win' && !isWin(s)) return false;
+    if(_res==='lose' && isWin(s)) return false;
+    return true;
+  });
+}
+function renderCards(){
+  const day=daySamples();
+  const n=day.length, win=day.filter(s=>isWin(s)).length;
+  document.getElementById('cards').innerHTML=
+    '<div class="card"><div class="k">首板数</div><div class="v">'+n+'<small> 只</small></div></div>'+
+    '<div class="card"><div class="k">今涨停(实时)</div><div class="v" style="color:#ff4d4f" id="card-win">'+win+'<small> 只</small></div></div>'+
+    '<div class="card"><div class="k">今未涨停</div><div class="v" style="color:#69f0ae" id="card-lose">'+(n-win)+'<small> 只</small></div></div>'+
+    '<div class="card"><div class="k">今涨停率</div><div class="v" id="card-rate">'+(n?((win/n)*100).toFixed(1):'0')+'<small>%</small></div></div>'+
+    '<div class="card"><div class="k">平均实时涨跌</div><div class="v" id="card-avg">—</div></div>';
+  applyQuotes();
+}
+function render(){
+  const tb=document.getElementById('tb');
+  const list=filtered().slice().sort((a,b)=>{
+    if(String(a.sig_date)!==String(b.sig_date)) return String(b.sig_date).localeCompare(String(a.sig_date));
+    return (livePct(b)||-999)-(livePct(a)||-999);
+  });
+  if(!list.length){ tb.innerHTML='<tr><td colspan="9" class="empty">该筛选下暂无样本</td></tr>'; return; }
+  tb.innerHTML=list.map(s=>{
+    const added=_lhSet.has(s.code);
+    return '<tr data-code="'+s.code+'">'+
+      '<td class="td-name">'+(s.name||'—')+(s.zb_count?'<span style="font-size:10px;color:#d8c884;margin-left:5px">炸'+s.zb_count+'</span>':'')+'</td>'+
+      '<td class="td-code">'+s.code+'</td>'+
+      '<td>'+dstr(s.sig_date)+'</td>'+
+      '<td class="td-next">'+fmtPct(s.next_pct)+'</td>'+
+      '<td class="td-vr">'+vrHtml(s.vol_ratio)+'</td>'+
+      '<td><button class="chart-btn" title="查看日线">&#x1F4C8; 日线</button></td>'+
+      '<td class="td-price muted">'+(s.sig_close!=null?s.sig_close.toFixed(2):'—')+'</td>'+
+      '<td class="td-mkt">'+mktHtml(s.mktcap)+'</td>'+
+      '<td><button class="btn-add'+(added?' done':'')+'" '+(added?'disabled':'')+'>'+(added?'&#10003; 已加':'&#65291; 龙回头')+'</button></td>'+
+      '</tr>'+
+      '<tr class="chart-row" id="chart-row-'+s.code+'"><td colspan="9" style="padding:0">'+
+        '<div class="chart-panel">'+
+          '<div class="chart-toolbar"><span class="chart-title">&#x1F4C8; <span id="ct-name-'+s.code+'">'+(s.name||s.code)+'</span> '+s.code+' 日线走势 · 首板 '+dstr(s.sig_date)+'</span></div>'+
+          '<canvas class="kchart" id="kcanvas-'+s.code+'"></canvas>'+
+        '</div></td></tr>';
+  }).join('');
+
+  tb.querySelectorAll('.chart-btn').forEach(b=>{ b.onclick=()=>toggleChart(b.closest('tr').dataset.code); });
+  tb.querySelectorAll('.btn-add').forEach(b=>{
+    if(b.classList.contains('done')) return;
+    b.onclick=()=>{
+      const code=b.closest('tr').dataset.code;
+      b.textContent='加入中…';
+      fetch('/api/lh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
+        .then(r=>r.json()).then(()=>{ _lhSet.add(code); b.className='btn-add done'; b.disabled=true; b.innerHTML='&#10003; 已加'; })
+        .catch(()=>{ b.innerHTML='&#65291; 重试'; });
+    };
+  });
+  applyQuotes();
+}
+
+function toggleChart(code){
+  const row=document.getElementById('chart-row-'+code);
+  if(!row) return;
+  const wasOpen=row.classList.contains('open');
+  document.querySelectorAll('.chart-row.open').forEach(r=>r.classList.remove('open'));
+  if(!wasOpen){
+    row.classList.add('open');
+    row.scrollIntoView({behavior:'smooth',block:'nearest'});
+    if(_klineCache[code]) drawChart(code,_klineCache[code]); else loadKline(code);
+  }
+}
+async function loadKline(code){
+  try{
+    const r=await fetch('/api/kline?code='+encodeURIComponent(code)+'&period=daily&days=120');
+    if(!r.ok) return;
+    const d=await r.json(); const bars=d.bars||[]; if(!bars.length) return;
+    _klineCache[code]=bars; drawChart(code,bars);
+    if(d.name){ const n=document.getElementById('ct-name-'+code); if(n) n.textContent=d.name; }
+  }catch(e){}
+}
+function drawChart(code,bars){
+  const canvas=document.getElementById('kcanvas-'+code);
+  if(!canvas) return;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.offsetWidth*dpr; canvas.height=230*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  const W=canvas.offsetWidth, H=230, n=bars.length;
+  if(n<2){ ctx.fillStyle='#4a5060'; ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.fillText('数据不足',W/2,H/2); return; }
+  const closes=bars.map(b=>b.close), highs=bars.map(b=>b.high), lows=bars.map(b=>b.low), opens=bars.map(b=>b.open), vols=bars.map(b=>b.vol||0);
+  const pMin=Math.min(...lows), pMax=Math.max(...highs), pad=(pMax-pMin)*0.1;
+  const pLo=pMin-pad, pHi=pMax+pad, volMax=Math.max(...vols)||1;
+  const priceH=H-58, volH=48, leftW=62, chartW=W-leftW;
+  const candleW=Math.max(2,chartW/n-1.5);
+  const pY=v=>priceH-(v-pLo)/(pHi-pLo)*priceH;
+  function ma(arr,p){const r=[];for(let i=0;i<arr.length;i++){if(i<p-1){r.push(null);continue;}r.push(arr.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p);}return r;}
+  const ma5=ma(closes,5), ma10=ma(closes,10), ma20=ma(closes,20), ma60=ma(closes,Math.min(60,Math.floor(n*0.5)));
+  ctx.strokeStyle='#1a1e28'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=Math.round(priceH*i/4);ctx.beginPath();ctx.moveTo(leftW,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(let i=0;i<n;i++){
+    const x=leftW+2+i*(chartW/n)+candleW/2, up=closes[i]>=opens[i];
+    ctx.strokeStyle=up?'#ff4d4f':'#00c853'; ctx.fillStyle=up?'#ff4d4f':'#00c853';
+    ctx.beginPath(); ctx.moveTo(x,pY(highs[i])); ctx.lineTo(x,pY(lows[i])); ctx.stroke();
+    const bt=pY(Math.max(opens[i],closes[i])), bb=pY(Math.min(opens[i],closes[i]));
+    ctx.fillRect(x-candleW/2,bt,Math.max(1,candleW),Math.max(1,bb-bt));
+    const vh=Math.max(1,(vols[i]/volMax)*volH*0.88);
+    ctx.fillStyle=up?'rgba(255,77,77,.3)':'rgba(0,200,83,.3)';
+    ctx.fillRect(x-candleW/2,H-vh,candleW,vh);
+  }
+  [[ma5,'#f5c842'],[ma10,'#4a9eff'],[ma20,'#ff8c00'],[ma60,'#c060ff']].forEach(([arr,color])=>{
+    if(!arr) return; ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.beginPath(); let started=false;
+    for(let i=0;i<n;i++){ if(arr[i]==null){started=false;continue;} const x=leftW+2+i*(chartW/n)+candleW/2, y=pY(arr[i]); if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); }
+    ctx.stroke();
+  });
+  ctx.fillStyle='#4a5060'; ctx.font='10px monospace'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){const v=pHi-(pHi-pLo)*i/4;ctx.fillText(v.toFixed(2),leftW-4,Math.round(priceH*i/4)+3);}
+  [[ma5,'#f5c842','MA5'],[ma10,'#4a9eff','MA10'],[ma20,'#ff8c00','MA20'],[ma60,'#c060ff','MA60']].forEach(([arr,color,label],idx)=>{
+    if(!arr) return; const x=leftW+8+idx*60, y=12;
+    ctx.fillStyle=color; ctx.fillRect(x,y-7,8,8);
+    ctx.fillStyle='#9aa0aa'; ctx.font='10px monospace'; ctx.textAlign='left'; ctx.fillText(label,x+12,y);
+  });
+}
+
+// ===== 重新扫描 =====
+function scanStatus(){
+  fetch('/api/firstboard/rescan/status').then(r=>r.json()).then(d=>{
+    const tip=document.getElementById('scan-tip');
+    if(d.running){ tip.textContent='扫描中… '+(d.progress||''); tip.style.color='#8db4e8'; }
+    else { tip.textContent='数据更新于 '+(d.updated||'未知'); tip.style.color='#6b7280'; }
+  }).catch(()=>{});
+}
+document.getElementById('rescan').onclick=()=>{
+  fetch('/api/firstboard/rescan',{method:'POST'}).then(r=>r.json()).then(d=>{
+    document.getElementById('scan-tip').textContent = d.status==='running'?'已有扫描在跑…':'已启动扫描（约1-2分钟）';
+  });
+};
+document.getElementById('seg-res').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#seg-res button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); _res=b.dataset.v; render();
+});
+window.addEventListener('resize',()=>{ document.querySelectorAll('.chart-row.open').forEach(r=>{ const c=r.id.replace('chart-row-',''); if(_klineCache[c]) drawChart(c,_klineCache[c]); }); });
+
+initWS();
+load();
+loadLH();
+scanStatus();
+setInterval(scanStatus, 5000);
+setInterval(load, 60000);
+</script>
+</body>
+</html>
